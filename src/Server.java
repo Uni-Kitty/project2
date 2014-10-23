@@ -40,7 +40,6 @@ public class Server {
     }
 
     private static class ServerThread implements Runnable {
-
         private DatagramPacket packet;
         private DatagramSocket socket;
 
@@ -63,59 +62,133 @@ public class Server {
                     int udp_port = getNewPort();
                     int secretA = R.nextInt(500);
 
-		    // end of part A code
-		    byte[] payload = createPayload(num, len, udp_port, secretA);
+				    // end of part A code
+				    byte[] payload = createPayload(num, len, udp_port, secretA);
                     byte[] response = createResponse(0, 1, payload);
                     InetAddress address = packet.getAddress();
                     int port = packet.getPort();
-		    DatagramSocket socketPartB = new DatagramSocket(udp_port); // opening port before sending port number to client
+		            DatagramSocket socketPartB = new DatagramSocket(udp_port);
                     DatagramPacket responsePacket = new DatagramPacket(response, response.length, address, port);
                     socket.send(responsePacket);
 
-		    System.out.println("Starting Part B..");
-		    socketPartB.setSoTimeout(TIMEOUT);
-		    InetAddress addressPartB = null;
-		    int portPartB = 0;
-		    int packetId = 0;
-		    while (packetId < num) {
-			ByteBuffer buffer = ByteBuffer.allocate(len + 4);
-			buffer.putInt(packetId);
-			byte[] expectedDataPartB = createResponse(secretA, 1, buffer.array());
-			// receive a packet and handle it with a new thread
-			DatagramPacket packetPartB = new DatagramPacket(new byte[expectedDataPartB.length], expectedDataPartB.length);
-			socketPartB.receive(packetPartB);
-			byte[] receivedDataPartB = packetPartB.getData();
-			if (Arrays.equals(expectedDataPartB, receivedDataPartB)) {
-			    System.out.println("Correct Packet Received");
-			    int ack = R.nextInt(50);
-			    boolean accept = ack % 2 == 0;
-			    if (accept) {
-				System.out.println("Decided to ack");
-				byte[] payloadPartB = createPayload(packetId);
-				byte[] responsePartB = createResponse(secretA, 1, payloadPartB);
-				addressPartB = packetPartB.getAddress();
-			        portPartB = packetPartB.getPort();
-				DatagramPacket responsePacketPartB = new DatagramPacket(responsePartB, responsePartB.length, addressPartB, portPartB);
-				socketPartB.send(responsePacketPartB);
-				packetId++;
-			    }
-			}
-		    }
-		    if (addressPartB == null || portPartB == 0) {
-			throw new ConnectException();
-		    }
-		    int tcp_port = getNewPort();
-		    int secretB = R.nextInt(500);
+		            System.out.println("Starting Part B..");
+		            socketPartB.setSoTimeout(TIMEOUT);
+		            InetAddress addressPartB = null;
+		            int portPartB = 0;
+		            int packetId = 0;
+		            while (packetId < num) {
+			            ByteBuffer buffer = ByteBuffer.allocate(len + 4);
+			            buffer.putInt(packetId);
+			            byte[] expectedDataPartB = createResponse(secretA, 1, buffer.array());
+			            DatagramPacket packetPartB = new DatagramPacket(new byte[expectedDataPartB.length], expectedDataPartB.length);
+			            socketPartB.receive(packetPartB);
+			            byte[] receivedDataPartB = packetPartB.getData();
+			            if (Arrays.equals(expectedDataPartB, receivedDataPartB)) {
+			                System.out.println("Correct Packet Received");
+			                int ack = R.nextInt(50);
+			                boolean accept = ack % 2 == 0;
+			                if (accept) {
+				                System.out.println("Decided to ack");
+				                byte[] payloadPartB = createPayload(packetId);
+				                byte[] responsePartB = createResponse(secretA, 1, payloadPartB);
+				                addressPartB = packetPartB.getAddress();
+			                    portPartB = packetPartB.getPort();
+				                DatagramPacket responsePacketPartB = new DatagramPacket(responsePartB, responsePartB.length, addressPartB, portPartB);
+				                socketPartB.send(responsePacketPartB);
+				                packetId++;
+			                }
+			            }
+		            }
+		            if (addressPartB == null || portPartB == 0) {
+			            throw new ConnectException();
+		            }
+		            int tcp_port = getNewPort();
+		            int secretB = R.nextInt(500);
 
-		    // end of part B code
-		    byte[] payloadPartB = createPayload(tcp_port, secretB);
-		    byte[] responsePartB = createResponse(secretA, 2, payloadPartB);
-		    ServerSocket socketPartC = new ServerSocket(tcp_port); // opening port before sending port number to client
-		    //		    socketPartC.accept();
-		    DatagramPacket responsePacketPartB = new DatagramPacket(responsePartB, responsePartB.length, addressPartB, portPartB);
-		    socketPartB.send(responsePacketPartB);
+		            // end of part B code
+		            byte[] payloadPartB = createPayload(tcp_port, secretB);
+		            byte[] responsePartB = createResponse(secretA, 2, payloadPartB);
+		            ServerSocket socketPartC = new ServerSocket(tcp_port); // opening port before sending port number to client
+		            //		    socketPartC.accept();
+		            DatagramPacket responsePacketPartB = new DatagramPacket(responsePartB, responsePartB.length, addressPartB, portPartB);
+		            socketPartB.send(responsePacketPartB);
 
-		    System.out.println("Starting Part C..");
+		            System.out.println("Starting Part C..");
+		            Socket client = socketPartC.accept();
+		            int num2 = R.nextInt(10) + 10;
+                    int len2 = R.nextInt(50) + 10;
+                    int secretC = R.nextInt(500);
+		            //Charset ascii = Charset.availableCharsets.get("US-ASCII", null);
+		            //String cString = "c";
+		            //ByteBuffer cBuffer = ascii.encode(cString);
+
+                    // hacky way of getting negative random bits to be positive
+		            byte[] randByte = new byte[1]; //cBuffer.array();
+		            R.nextBytes(randByte);
+                    byte c = randByte[0];
+                    System.out.println(randByte[0]);
+                    if ((c >> 7 & 1) == 1) {
+                        System.out.println("negative");
+                        c = (byte) (((int) c) ^ (1 << 7));
+                        System.out.println(c);
+                    } else {
+                        System.out.println("positive");
+                    }
+                
+
+		            System.out.println("num2: " + num2 + " len2: " + len2 + " secretC: " + secretC + " " + c);
+		            byte[] payloadPartC = createPayload(num2, len2, secretC, c);
+                    printBits(payloadPartC);
+		            byte[] responsePartC = createResponse(secretB, 2, payloadPartC);
+                    System.out.println();
+                    printBits(responsePartC);
+
+		            DataOutputStream outStream = new DataOutputStream(client.getOutputStream());
+		            outStream.write(responsePartC, 0, responsePartC.length);
+
+                    System.out.println("Commencing Stage D****");
+                    int payloadCount = 0;
+                    DataInputStream inStream = new DataInputStream(client.getInputStream());
+                    while (payloadCount < num2) {
+                        System.out.println("here");
+                        int bufferSize = len2 + 12;
+                        while (bufferSize % 4 != 0) {
+                            bufferSize++;
+                        }
+                        byte[] input = new byte[bufferSize]; 
+                        inStream.read(input);
+                        ByteBuffer buffer = ByteBuffer.wrap(input);
+                        int payloadLen = buffer.getInt(0);
+                        int pSecret = buffer.getInt(4);
+                        short step = buffer.getShort(8);
+                        short id = buffer.getShort(10);
+                        
+                        System.out.println(payloadLen +" " + len2);
+                        System.out.println(pSecret + " " + secretC);
+                        System.out.println(step);
+                        System.out.println(id);
+                        if (payloadLen != len2 || pSecret != secretC || step != 1 || id != 345) {
+                            System.out.println(payloadLen +" " + len2);
+                            System.out.println(pSecret + " " + secretC);
+                            System.out.println(step);
+                            System.out.println(id);
+                            return;
+                        }
+                        for (int i = 0; i < len2; i++) {
+                            byte b = buffer.get(12 + i);
+                            if (b != c) {
+                                return;
+                            }
+                        }
+                        payloadCount++;
+                        
+                        Thread.sleep(1000);
+                    }
+                    
+                    int secretD = R.nextInt(500);
+                    byte[] payloadPartD = createPayload(secretD);
+                    byte[] responsePartD = createResponse(secretC, 2, payloadPartD);
+                    outStream.write(responsePartD, 0, responsePartD.length);
                 } else {
                     // nothing to do if incorrect packet received, just die
                     // these lines are for debugging
@@ -124,17 +197,17 @@ public class Server {
                     System.out.println("Expected packet:");
                     printBits(EXPECTED_DATA_A);
                 }
-	    }
-	    catch (SocketTimeoutException se) {
-		// socket timed out, die quietly
-		System.out.println("Server B timed out");
-	    }
+	        }
+	        catch (SocketTimeoutException se) {
+		        // socket timed out, die quietly
+		        System.out.println("Server B timed out");
+	        }
             catch (Exception e) {
                 e.printStackTrace();
             }
-	    finally {
-		//portsInUse.remove(port);
-	    }
+	        finally {
+		    //portsInUse.remove(port);
+	        }
         }
     }
 
@@ -168,6 +241,16 @@ public class Server {
 	ByteBuffer b = ByteBuffer.wrap(result);
 	b.putInt(port);
 	b.putInt(secret);
+	return result;
+    }
+
+    private static byte[] createPayload(int num, int len, int secret, byte c) {
+	byte[] result = new byte[13];
+	ByteBuffer b = ByteBuffer.wrap(result);
+	b.putInt(num);
+	b.putInt(len);
+	b.putInt(secret);
+	b.put(c);
 	return result;
     }
 

@@ -31,7 +31,7 @@ public class Server {
                 // receive a packet and handle it with a new thread
                 DatagramPacket packet = new DatagramPacket(new byte[EXPECTED_DATA_A.length], EXPECTED_DATA_A.length);
                 socket.receive(packet);
-                new Thread(new ServerA(socket, packet)).start();
+                new Thread(new ServerThread(socket, packet)).start();
             }
         }
         catch (Exception e) {
@@ -39,12 +39,12 @@ public class Server {
         }
     }
 
-    private static class ServerA implements Runnable {
+    private static class ServerThread implements Runnable {
 
         private DatagramPacket packet;
         private DatagramSocket socket;
 
-        private ServerA(DatagramSocket socket, DatagramPacket packet) {
+        private ServerThread(DatagramSocket socket, DatagramPacket packet) {
             this.socket = socket;
             this.packet = packet;
         }
@@ -62,16 +62,60 @@ public class Server {
                     int len = R.nextInt(50) + 10;
                     int udp_port = getNewPort();
                     int secretA = R.nextInt(500);
-                    // start serverB before responding, so it's ready
-                    ServerB serverB = new ServerB(num, len, udp_port, secretA);
-                    new Thread(serverB).start();
-                    // now create response and send it
-                    byte[] payload = createPayload(num, len, udp_port, secretA);
+
+		    // end of part A code
+		    byte[] payload = createPayload(num, len, udp_port, secretA);
                     byte[] response = createResponse(0, 1, payload);
                     InetAddress address = packet.getAddress();
                     int port = packet.getPort();
+		    DatagramSocket socketPartB = new DatagramSocket(udp_port); // opening port before sending port number to client
                     DatagramPacket responsePacket = new DatagramPacket(response, response.length, address, port);
                     socket.send(responsePacket);
+
+		    System.out.println("Starting Part B..");
+		    socketPartB.setSoTimeout(TIMEOUT);
+		    InetAddress addressPartB = null;
+		    int portPartB = 0;
+		    int packetId = 0;
+		    while (packetId < num) {
+			ByteBuffer buffer = ByteBuffer.allocate(len + 4);
+			buffer.putInt(packetId);
+			byte[] expectedDataPartB = createResponse(secretA, 1, buffer.array());
+			// receive a packet and handle it with a new thread
+			DatagramPacket packetPartB = new DatagramPacket(new byte[expectedDataPartB.length], expectedDataPartB.length);
+			socketPartB.receive(packetPartB);
+			byte[] receivedDataPartB = packetPartB.getData();
+			if (Arrays.equals(expectedDataPartB, receivedDataPartB)) {
+			    System.out.println("Correct Packet Received");
+			    int ack = R.nextInt(50);
+			    boolean accept = ack % 2 == 0;
+			    if (accept) {
+				System.out.println("Decided to ack");
+				byte[] payloadPartB = createPayload(packetId);
+				byte[] responsePartB = createResponse(secretA, 1, payloadPartB);
+				addressPartB = packetPartB.getAddress();
+			        portPartB = packetPartB.getPort();
+				DatagramPacket responsePacketPartB = new DatagramPacket(responsePartB, responsePartB.length, addressPartB, portPartB);
+				socketPartB.send(responsePacketPartB);
+				packetId++;
+			    }
+			}
+		    }
+		    if (addressPartB == null || portPartB == 0) {
+			throw new ConnectException();
+		    }
+		    int tcp_port = getNewPort();
+		    int secretB = R.nextInt(500);
+
+		    // end of part B code
+		    byte[] payloadPartB = createPayload(tcp_port, secretB);
+		    byte[] responsePartB = createResponse(secretA, 2, payloadPartB);
+		    ServerSocket socketPartC = new ServerSocket(tcp_port); // opening port before sending port number to client
+		    //		    socketPartC.accept();
+		    DatagramPacket responsePacketPartB = new DatagramPacket(responsePartB, responsePartB.length, addressPartB, portPartB);
+		    socketPartB.send(responsePacketPartB);
+
+		    System.out.println("Starting Part C..");
                 } else {
                     // nothing to do if incorrect packet received, just die
                     // these lines are for debugging
@@ -80,60 +124,18 @@ public class Server {
                     System.out.println("Expected packet:");
                     printBits(EXPECTED_DATA_A);
                 }
-            }
+	    }
+	    catch (SocketTimeoutException se) {
+		// socket timed out, die quietly
+		System.out.println("Server B timed out");
+	    }
             catch (Exception e) {
                 e.printStackTrace();
             }
+	    finally {
+		//portsInUse.remove(port);
+	    }
         }
-    }
-
-    private static class ServerB implements Runnable {
-
-        private int num;
-        private int len;
-        private int port;
-        private int secretA;
-
-        private ServerB(int num, int len, int port, int secretA) {
-            this.num = num;
-            this.len = len;
-            this.port = port;
-            this.secretA = secretA; 
-        }
-
-        @Override
-        public void run() {
-            try {
-                System.out.println("Starting Server B..");
-                DatagramSocket socket = new DatagramSocket(port);
-                socket.setSoTimeout(TIMEOUT);
-                int packetId = 0;
-                while (packetId < num) {
-                    ByteBuffer buffer = ByteBuffer.allocate(len + 4);
-                    buffer.putInt(packetId);
-                    byte[] expectedData = createResponse(secretA, 1, buffer.array());
-                    // receive a packet and handle it with a new thread
-                    DatagramPacket packet = new DatagramPacket(new byte[expectedData.length], expectedData.length);
-                    socket.receive(packet);
-                    byte[] receivedData = packet.getData();
-                    if (Arrays.equals(expectedData, receivedData)) {
-                        System.out.println("Correct Packet Received");
-                        // TODO: randomly decide to ack, increase packetId if we ack
-                    }
-                }
-            }
-            catch (SocketTimeoutException se) {
-                // socket timed out, die quietly
-                System.out.println("Server B timed out");
-            }
-            catch (Exception e) {
-                e.printStackTrace();
-            }
-            finally {
-                portsInUse.remove(port);
-            }
-        }
-
     }
 
     // Returns a port that is not in use
@@ -158,9 +160,30 @@ public class Server {
         return result;
     }
 
+    /**
+     *  Creates an 8 byte payload from the given ints
+     */
+    private static byte[] createPayload(int port, int secret) {
+	byte[] result = new byte[8];
+	ByteBuffer b = ByteBuffer.wrap(result);
+	b.putInt(port);
+	b.putInt(secret);
+	return result;
+    }
+
+    /**
+     *  Creates a 4 byte payload from the given int
+     */
+    private static byte[] createPayload(int packetId) {
+	byte[] result = new byte[4];
+	ByteBuffer b = ByteBuffer.wrap(result);
+	b.putInt(packetId);
+	return result;
+    }
+
     /*
-    * Creates a response from the given values
-    */
+     * Creates a response from the given values
+     */
     private static byte[] createResponse(int secretInt, int stepInt, byte[] payload) {
         byte[] digits = get2ByteArray(LAST_THREE_SID);
         byte[] secret = get4ByteArray(secretInt);
@@ -197,9 +220,9 @@ public class Server {
     }
 
     /*
-    * Returns a 2 byte array representation of an int value
-    * Network (Big Endian) ordering
-    */
+     * Returns a 2 byte array representation of an int value
+     * Network (Big Endian) ordering
+     */
     public static byte[] get2ByteArray(int value) {
         ByteBuffer b = ByteBuffer.allocate(4);
         b.order(ByteOrder.BIG_ENDIAN);
@@ -212,9 +235,9 @@ public class Server {
     }
     
     /*
-    * Returns a 4 byte array representation of an int value
-    * Network (Big Endian) ordering
-    */
+     * Returns a 4 byte array representation of an int value
+     * Network (Big Endian) ordering
+     */
     public static byte[] get4ByteArray(int value) {
         ByteBuffer b = ByteBuffer.allocate(4);
         b.order(ByteOrder.BIG_ENDIAN);
@@ -224,8 +247,8 @@ public class Server {
     }
 
     /*
-    * Returns a byte array representation of a String
-    */
+     * Returns a byte array representation of a String
+     */
     public static byte[] getByteArrayFromString(String s) {
         int size = s.length() + 1;
         ByteBuffer b = ByteBuffer.allocate(size * 2);
@@ -240,8 +263,8 @@ public class Server {
     }
     
     /**
-    * For debugging, prints bits in 4 byte rows to std out
-    */
+     * For debugging, prints bits in 4 byte rows to std out
+     */
     public static void printBits(byte[] buf) {
         int i = 0;
         for (byte b : buf) {

@@ -4,8 +4,9 @@ import java.nio.*;
 import java.util.*;
 
 /**
- *  Main starts ServerA, which then creates and starts a ServerB for each client that sends a correct
- *  packet.
+ * CSE 461
+ * John Wilson, Samuel Felker, Jake Nash
+ * Project 2
  */
 public class Server {
 
@@ -48,6 +49,9 @@ public class Server {
         }
     }
 
+    /**
+     *  Handler for each packet received by Server
+     */
     private static class Handler implements Runnable {
 
         private DatagramPacket packet;
@@ -67,7 +71,6 @@ public class Server {
         private int secretD;
         private byte c;
         private byte[] studentId;
-        private InetAddress clientAddress;
 
         private Handler(DatagramSocket socket, DatagramPacket packet) {
             this.socketA = socket;
@@ -113,6 +116,9 @@ public class Server {
             }
         }
 
+        /**
+         *  Initializes sockets and studentId
+         */
         private void init() throws SocketException, IOException {
             socketB = new DatagramSocket(udp_port);
             socketB.setSoTimeout(TIMEOUT);
@@ -122,9 +128,11 @@ public class Server {
             // we know these are safe as we control the length of both arrays
             studentId[0] = receivedData[10];
             studentId[1] = receivedData[11];
-            clientAddress = packet.getAddress();
         }
 
+        /**
+         *  Performs Stage A
+         */
         private void doStageA() throws IOException, InvalidDataException {
             System.out.println("*** Commencing Stage A ***");
             byte[] expectedDataA = createResponse(0, 1, HELLO_WORLD);
@@ -140,6 +148,9 @@ public class Server {
             }
         }
 
+        /**
+         *  Performs Stage B, requires Stage A completed successfully
+         */
         private void doStageB() throws SocketTimeoutException, IOException {
             System.out.println("*** Commencing Stage B ***");
             int packetId = 0;
@@ -171,6 +182,9 @@ public class Server {
             socketB.send(responsePacketB2);
         }
 
+        /**
+         *  Performs Stage C, requires Stage A-B completed successfully
+         */
         private void doStageC() throws IOException {
             System.out.println("*** Commencing Stage C ***");
             tcpClient = tcpSocket.accept();
@@ -181,6 +195,9 @@ public class Server {
             System.out.println("*** Stage C Success ***");
         }
 
+        /**
+         *  Performs Stage D, requires Stage A-C completed successfully
+         */
         private void doStageD() throws IOException, SocketTimeoutException {
             System.out.println("*** Commencing Stage D ****");
             int count = 0;
@@ -240,6 +257,9 @@ public class Server {
         }
     }
 
+    /**
+     *  returns a random non-negative byte
+     */
     private static byte getRandomByte() {
         Random r = new Random();
         byte[] buf = new byte[1];
@@ -273,7 +293,7 @@ public class Server {
     }
 
     /**
-     *  Creates a 16 byte payload from the given ints
+     *  Creates a byte[] from the given ints
      */
     private static byte[] createPayload(int num, int len, int port, int secret) {
         byte[] result = new byte[16];
@@ -286,7 +306,7 @@ public class Server {
     }
 
     /**
-     *  Creates an 8 byte payload from the given ints
+     *  Creates a byte[] from the given ints
      */
     private static byte[] createPayload(int port, int secret) {
         byte[] result = new byte[8];
@@ -296,6 +316,9 @@ public class Server {
         return result;
     }
 
+    /**
+     *  Creates a byte[] from the given ints and byte
+     */
     private static byte[] createPayload(int num, int len, int secret, byte c) {
         byte[] result = new byte[13];
         ByteBuffer b = ByteBuffer.wrap(result);
@@ -307,7 +330,7 @@ public class Server {
     }
 
     /**
-     *  Creates a 4 byte payload from the given int
+     *  Creates a byte[] from the given int
      */
     private static byte[] createPayload(int packetId) {
         byte[] result = new byte[4];
@@ -345,6 +368,7 @@ public class Server {
 
     /*
      * Returns a byte array representation of a String
+     * Network (Big Endian) ordering
      */
     public static byte[] getByteArrayFromString(String s) {
         int size = s.length() + 1;

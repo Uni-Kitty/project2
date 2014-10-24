@@ -83,9 +83,7 @@ public class Server {
             secretB = r.nextInt(500);
             secretC = r.nextInt(500);
             secretD = r.nextInt(500);
-            byte[] randByte = new byte[1];
-            r.nextBytes(randByte);
-            c = randByte[0];
+            c = getRandomByte();
             portsInUse.add(udp_port);
             portsInUse.add(tcp_port);
             studentId = new byte[2]; // to be filled in from data in first packet
@@ -240,6 +238,17 @@ public class Server {
             }
             return buf;
         }
+    }
+
+    private static byte getRandomByte() {
+        Random r = new Random();
+        byte[] buf = new byte[1];
+        byte b;
+        do {
+            r.nextBytes(buf);
+            b = buf[0];
+        } while (b < 0);
+        return b;
     }
 
     // Returns a port that is not in use

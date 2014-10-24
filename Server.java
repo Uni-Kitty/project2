@@ -102,7 +102,7 @@ public class Server {
                 doStageD();
             }
             catch (InvalidDataException ie) {
-                System.out.println("*** Stage A Failure ***");
+                // bad data, die quietly
             }
             catch (SocketTimeoutException se) {
                 System.out.println("*** Server timed out ***");
@@ -144,6 +144,7 @@ public class Server {
                 socketA.send(responsePacketA);
                 System.out.println("*** Stage A Success ***");
             } else {
+                System.out.println("*** Stage A Failure ***");
                 throw new InvalidDataException();
             }
         }
@@ -151,7 +152,7 @@ public class Server {
         /**
          *  Performs Stage B, requires Stage A completed successfully
          */
-        private void doStageB() throws SocketTimeoutException, IOException {
+        private void doStageB() throws SocketTimeoutException, IOException, InvalidDataException {
             System.out.println("*** Commencing Stage B ***");
             int packetId = 0;
             Random r = new Random();
@@ -171,9 +172,14 @@ public class Server {
                         DatagramPacket responsePacketB1 = new DatagramPacket(responseDataB1, responseDataB1.length, packet.getAddress(), packet.getPort());
                         socketB.send(responsePacketB1);
                         packetId++;
-                    } else {
+                    }
+                    else {
                         System.out.println("decided not to ack");
                     }
+                }
+                else {
+                    System.out.println("*** Stage B Failure ***");
+                    throw new InvalidDataException();
                 }
             }
             byte[] payloadB2 = createPayload(tcp_port, secretB);
@@ -198,7 +204,7 @@ public class Server {
         /**
          *  Performs Stage D, requires Stage A-C completed successfully
          */
-        private void doStageD() throws IOException, SocketTimeoutException {
+        private void doStageD() throws IOException, SocketTimeoutException, InvalidDataException {
             System.out.println("*** Commencing Stage D ****");
             int count = 0;
             DataInputStream inStream = new DataInputStream(tcpClient.getInputStream());
@@ -210,7 +216,11 @@ public class Server {
                 inStream.read(receivedData);
                 if (Arrays.equals(expectedData, receivedData)) {
                     count++;
-                    System.out.println("Received packet " + ( count + 1 ) + " of " + num2);
+                    System.out.println("Received packet " + count + " of " + num2);
+                }
+                else {
+                    System.out.println("*** Stage D Failure ***");
+                    throw new InvalidDataException();
                 }
             }
             byte[] payloadD = createPayload(secretD);

@@ -1,10 +1,10 @@
 project2
 ========
 
-run server:
+run server on default port:
 
-src/runServer
+./run
 
-run client to test server:
+run server of different port:
 
-src/runClient
+javac Server.java && java Server <port>
